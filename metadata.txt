@@ -1,0 +1,11 @@
+[general]
+name=spotter
+description=Plugin per import/export CSV e import DXF
+version=1.0
+icon=icon.png
+qgisMinimumVersion=3.0
+author=Marco Severin
+email=solutop@gmail.com
+category=Utility
+homepage=https://ms2.solutop.eu/
+
