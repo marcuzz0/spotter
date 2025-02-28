@@ -16,7 +16,7 @@ class SpotterPlugin:
 
     def tr(self, message):
         """Metodo per la traduzione dei testi."""
-        return QCoreApplication.translate("Spotter", message)
+        return QCoreApplication.translate("spotter", message)
 
     def initGui(self):
         """Inizializza l'interfaccia grafica del plugin aggiungendo l'azione."""
@@ -24,11 +24,11 @@ class SpotterPlugin:
         self.action = QAction(QIcon(icon_path), self.tr("spotter"), self.iface.mainWindow())
         self.action.triggered.connect(self.run)
         self.iface.addToolBarIcon(self.action)
-        self.iface.addPluginToMenu(self.tr("&Spotter"), self.action)
+        self.iface.addPluginToMenu(self.tr("&spotter"), self.action)
 
     def unload(self):
         """Rimuove l'azione quando il plugin viene disabilitato o chiuso."""
-        self.iface.removePluginMenu(self.tr("&Spotter"), self.action)
+        self.iface.removePluginMenu(self.tr("&spotter"), self.action)
         self.iface.removeToolBarIcon(self.action)
 
     def run(self):

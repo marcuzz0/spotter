@@ -6,6 +6,8 @@ from qgis.PyQt.QtWidgets import (
     QLineEdit, QFileDialog, QCheckBox, QListWidget, QListWidgetItem,
     QComboBox, QMessageBox, QTabWidget, QWidget, QProgressDialog, QSizePolicy
 )
+from qgis.PyQt.QtGui import QColor, QFont, QPixmap
+from qgis.PyQt.QtCore import QVariant, Qt, pyqtSignal
 from qgis.gui import QgsMapToolEmitPoint
 from qgis.core import (
     QgsProject, QgsVectorLayer, QgsFeature, QgsFields, QgsField,
@@ -15,9 +17,6 @@ from qgis.core import (
     QgsPalLayerSettings, QgsTextFormat, QgsTextBufferSettings, QgsMarkerSymbol,
     QgsSingleSymbolRenderer
 )
-from PyQt5.QtGui import QColor, QFont
-from PyQt5.QtCore import QVariant, Qt, pyqtSignal
-
 import csv
 import os
 import traceback
@@ -26,16 +25,17 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 ###############################################################################
-# DIALOG PRINCIPALE CON 3 TAB:
+# DIALOG PRINCIPALE CON 4 TAB:
 #   1) Importa CSV
 #   2) Esporta CSV
 #   3) Importa DXF
+#   4) Info
 ###############################################################################
 class CombinedCsvDialog(QDialog):
     def __init__(self, iface):
         super().__init__()
         self.iface = iface  # Interfaccia di QGIS (di solito disponibile come variabile globale "iface")
-        self.setWindowTitle("spotter by marcuzz0")
+        self.setWindowTitle("spotter")
         self.setFixedSize(600, 600)
 
         # Variabili per gestione CSV
@@ -78,6 +78,11 @@ class CombinedCsvDialog(QDialog):
         self.init_dxf_tab()
         self.tabs.addTab(self.dxf_tab, "Importa DXF")
 
+        # 4) TAB Info
+        self.info_tab = QWidget()
+        self.init_info_tab()
+        self.tabs.addTab(self.info_tab, "Info")
+
         main_layout.addWidget(self.tabs)
         self.setLayout(main_layout)
 
@@ -118,7 +123,6 @@ class CombinedCsvDialog(QDialog):
         self.import_header_checkbox = QCheckBox("Il file CSV ha l'intestazione (header)")
         self.import_header_checkbox.setChecked(True)
         self.import_header_checkbox.stateChanged.connect(self.import_load_fields)
-
         layout.addWidget(self.import_header_checkbox)
         layout.addSpacing(8)
 
@@ -141,7 +145,6 @@ class CombinedCsvDialog(QDialog):
         coord_layout.addWidget(self.import_y_field_combo)
         coord_layout.addWidget(QLabel("Campo lon(x):"))
         coord_layout.addWidget(self.import_x_field_combo)
-
         layout.addLayout(coord_layout)
         layout.addSpacing(10)
 
@@ -811,32 +814,31 @@ class CombinedCsvDialog(QDialog):
     ############################################################################
     #                               TAB 4: INFO
     ############################################################################
-def init_info_tab(self):
-    layout = QVBoxLayout()
+    def init_info_tab(self):
+        layout = QVBoxLayout()
 
-    # Informazioni sul plugin
-    info_label = QLabel(
-        "<h3>Spotter Plugin</h3>"
-        "<p><b>Versione:</b> 1.0</p>"
-        "<p><b>Autore:</b> Marco Severin</p>"
-        "<p><b>Descrizione:</b> Plugin per l'importazione ed esportazione di dati CSV e DXF in QGIS.</p>"
-        "<p><b>Email di supporto:</b> supporto@example.com</p>"
-        "<p><b>Licenza:</b> MIT</p>"
-        "<p><b>GitHub:</b> <a href='https://github.com/marcoseverin/spotter'>Repository</a></p>"
-    )
-    info_label.setOpenExternalLinks(True)
-    info_label.setWordWrap(True)
-    layout.addWidget(info_label)
+        # Informazioni sul plugin
+        info_label = QLabel(
+            "<p><b>Versione:</b> 1.0</p>"
+            "<p><b>Autore:</b> <a href='mailto:severinmarco@gmail.com'>marcuzz0</a></p>"
+            "<p><b>Codice:</b> <a href='https://github.com/marcuzz0/spotter'>Github repository</a></p>"
+            "<p><b>Supporta:</b> <a href='https://ko-fi.com/marcuzz0'>ko-fi</a></p>"
+            "<p><b>Licenza:</b> <a href='https://github.com/marcuzz0/spotter/blob/main/LICENSE'>GPL-3.0 license</a></p>"
+            "<p><b>Descrizione:</b> Il plugin Spotter è uno strumento per QGIS progettato per semplificare il flusso di lavoro relativo all'importazione ed esportazione di dati geografici, focalizzandosi in particolare su file CSV e DXF.</p>"
+        )
+        info_label.setOpenExternalLinks(True)
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
 
-    # Aggiungere il logo del plugin (se presente)
-    icon_path = os.path.join(os.path.dirname(__file__), "icon.png")
-    if os.path.exists(icon_path):
-        logo_label = QLabel()
-        logo_label.setPixmap(QPixmap(icon_path).scaled(100, 100, Qt.KeepAspectRatio))
-        logo_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(logo_label)
+        # Aggiungere il logo del plugin (se presente)
+        icon_path = os.path.join(os.path.dirname(__file__), "icon.png")
+        if os.path.exists(icon_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QPixmap(icon_path).scaled(100, 100, Qt.KeepAspectRatio))
+            logo_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(logo_label)
 
-    self.info_tab.setLayout(layout)
+        self.info_tab.setLayout(layout)
 
     ############################################################################
     #        METODI GENERICI / GESTIONE TAB / CHIUSURA
@@ -847,8 +849,10 @@ def init_info_tab(self):
             self.populate_export_layers()
 
     def close_dialog(self):
-        reply = QMessageBox.question(self, 'Conferma', 'Vuoi chiudere la finestra?',
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = QMessageBox.question(
+            self, 'Conferma', 'Vuoi chiudere la finestra?',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
         if reply == QMessageBox.Yes:
             self.close()
 
@@ -881,3 +885,4 @@ def run_dialog():
     # 'iface' deve essere disponibile (in QGIS lo è di default)
     dialog_ref = CombinedCsvDialog(iface)
     dialog_ref.show()
+
