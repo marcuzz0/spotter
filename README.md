@@ -20,6 +20,7 @@ Il plugin Open Source spotter è uno strumento per QGIS progettato per semplific
 Il plugin viene distribuito come un file ZIP con una struttura di cartella corretta. Dopo averlo installato tramite il gestore plugin di QGIS, apparirà un’icona e/o una voce di menu associata a «spotter».
 
 ## Avvio del Plugin:
+
 Cliccando sull’icona o selezionando il plugin dal menu, si apre la finestra di dialogo con i vari tab.
 
 ## Flusso di Lavoro:
@@ -33,14 +34,11 @@ Cliccando sull’icona o selezionando il plugin dal menu, si apre la finestra di
 
 Il plugin è strutturato in più file per separare le diverse componenti:
 
-## main.py:
-- Contiene la definizione della classe CombinedCsvDialog, che gestisce l’interfaccia utente e tutte le funzionalità. Qui sono definiti i metodi per ciascun tab (importazione CSV, esportazione CSV, importazione DXF, tab Info) e le relative logiche operative.
+- main.py: contiene la definizione della classe CombinedCsvDialog, che gestisce l’interfaccia utente e tutte le funzionalità. Qui sono definiti i metodi per ciascun tab (importazione CSV, esportazione CSV, importazione DXF, tab Info) e le relative logiche operative.
 
-## spotter_plugin.py:
-- Definisce la classe principale SpotterPlugin che integra il dialogo nel ciclo di vita del plugin QGIS. Qui vengono gestiti l’inizializzazione, l’aggiunta dell’azione all’interfaccia e la gestione dell’avvio e della chiusura del plugin.
+- spotter_plugin.py: definisce la classe principale SpotterPlugin che integra il dialogo nel ciclo di vita del plugin QGIS. Qui vengono gestiti l’inizializzazione, l’aggiunta dell’azione all’interfaccia e la gestione dell’avvio e della chiusura del plugin.
 
-## __init__.py:
-- Contiene la funzione classFactory(iface) che espone il plugin a QGIS. Questa funzione importa la classe SpotterPlugin e la restituisce, consentendo a QGIS di inizializzare il plugin correttamente.
+- __init__.py: contiene la funzione classFactory(iface) che espone il plugin a QGIS. Questa funzione importa la classe SpotterPlugin e la restituisce, consentendo a QGIS di inizializzare il plugin correttamente.
 
 
 
