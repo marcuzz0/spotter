@@ -1,6 +1,7 @@
 # Che cos'è?
 
 Il plugin Open Source spotter è uno strumento per QGIS progettato per semplificare il flusso di lavoro relativo all’importazione ed esportazione di dati geografici, focalizzandosi in particolare su file CSV e DXF.
+
 **Note**: puoi scaricare il file zippato direttamente dalla sezione release
 
 # Funzionalità Principali
@@ -16,7 +17,7 @@ Il plugin Open Source spotter è uno strumento per QGIS progettato per semplific
 # Come si usa?
 
 ## Installazione:
-Il plugin viene distribuito come un file ZIP con una struttura di cartella corretta. Dopo averlo installato tramite il gestore plugin di QGIS, apparirà un’icona e/o una voce di menu associata a «Spotter».
+Il plugin viene distribuito come un file ZIP con una struttura di cartella corretta. Dopo averlo installato tramite il gestore plugin di QGIS, apparirà un’icona e/o una voce di menu associata a «spotter».
 
 ## Avvio del Plugin:
 Cliccando sull’icona o selezionando il plugin dal menu, si apre la finestra di dialogo con i vari tab.
