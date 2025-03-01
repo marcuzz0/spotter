@@ -819,12 +819,12 @@ class CombinedCsvDialog(QDialog):
 
         # Informazioni sul plugin
         info_label = QLabel(
-            "<p><b>Versione:</b> 1.0</p>"
+            "<p><b>Versione:</b> 1.0.0 del 28 febbraio 2025</p>"
             "<p><b>Autore:</b> <a href='mailto:severinmarco@gmail.com'>marcuzz0</a></p>"
             "<p><b>Codice:</b> <a href='https://github.com/marcuzz0/spotter'>Github repository</a></p>"
-            "<p><b>Supporta:</b> <a href='https://ko-fi.com/marcuzz0'>ko-fi</a></p>"
-            "<p><b>Licenza:</b> <a href='https://github.com/marcuzz0/spotter/blob/main/LICENSE'>GPL-3.0 license</a></p>"
-            "<p><b>Descrizione:</b> Il plugin Spotter è uno strumento per QGIS progettato per semplificare il flusso di lavoro relativo all'importazione ed esportazione di dati geografici, focalizzandosi in particolare su file CSV e DXF.</p>"
+            "<p><b>Supporta:</b> puoi fare una donazione per supportare il progetto da  <a href='https://ko-fi.com/marcuzz0'>qui</a></p>"
+            "<p><b>Licenza:</b> spotter viene distribuito sotto licenza <a href='https://github.com/marcuzz0/spotter/blob/main/LICENSE'>GPL-3.0 license</a></p>"
+            "<p><b>Descrizione:</b> Il plugin spotter è uno strumento per QGIS progettato per semplificare il flusso di lavoro relativo all'importazione ed esportazione di dati geografici, focalizzandosi in particolare su file CSV e DXF</p>"
         )
         info_label.setOpenExternalLinks(True)
         info_label.setWordWrap(True)
@@ -834,7 +834,7 @@ class CombinedCsvDialog(QDialog):
         icon_path = os.path.join(os.path.dirname(__file__), "icon.png")
         if os.path.exists(icon_path):
             logo_label = QLabel()
-            logo_label.setPixmap(QPixmap(icon_path).scaled(100, 100, Qt.KeepAspectRatio))
+            logo_label.setPixmap(QPixmap(icon_path).scaled(200, 200, Qt.KeepAspectRatio))
             logo_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(logo_label)
 
