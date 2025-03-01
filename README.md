@@ -5,10 +5,11 @@ Il plugin Open Source spotter è uno strumento per QGIS progettato per semplific
 **Note**: puoi scaricare il file zippato direttamente dalla sezione release
 
 # Funzionalità Principali
-– Importa CSV: consente di importare dati da file CSV, configurare i campi da utilizzare e creare un layer georeferenziato
-– Esporta CSV: permette di selezionare un layer esistente nel progetto, scegliere i campi da esportare, impostare il sistema di coordinate e salvare i dati in un nuovo file CSV
-– Importa DXF: fornisce strumenti per caricare file DXF, verificare la validità delle geometrie e posizionare il contenuto sulla mappa mediante un tool interattivo (clic sulla mappa)
-– Info: mostra le informazioni sul plugin, inclusi dettagli sulla versione, autore, descrizione, licenza e link utili. Qui è possibile anche integrare i metodi di donazione e altre risorse di supporto
+
+1– Importa CSV: consente di importare dati da file CSV, configurare i campi da utilizzare e creare un layer georeferenziato
+2– Esporta CSV: permette di selezionare un layer esistente nel progetto, scegliere i campi da esportare, impostare il sistema di coordinate e salvare i dati in un nuovo file CSV
+3– Importa DXF: fornisce strumenti per caricare file DXF, verificare la validità delle geometrie e posizionare il contenuto sulla mappa mediante un tool interattivo (clic sulla mappa)
+4– Info: mostra le informazioni sul plugin, inclusi dettagli sulla versione, autore, descrizione, licenza e link utili. Qui è possibile anche integrare i metodi di donazione e altre risorse di supporto
 
 
 # Come si usa?
