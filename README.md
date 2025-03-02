@@ -35,6 +35,6 @@ Il plugin è strutturato in più file per separare le diverse componenti:
 - **spotter_plugin.py**: definisce la classe principale SpotterPlugin che integra il dialogo nel ciclo di vita del plugin QGIS. Qui vengono gestiti l’inizializzazione, l’aggiunta dell’azione all’interfaccia e la gestione dell’avvio e della chiusura del plugin.
 
 - **__init__.py**: contiene la funzione classFactory(iface) che espone il plugin a QGIS. Questa funzione importa la classe SpotterPlugin e la restituisce, consentendo a QGIS di inizializzare il plugin correttamente.
-
+- Altri file (opzionali): Sono inclusi file di risorse (come icon.png per l’icona) e file di licenza (come LICENSE) per documentare la licenza del plugin.
 
 
