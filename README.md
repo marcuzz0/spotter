@@ -31,7 +31,7 @@ Cliccando sull’icona o selezionando il plugin dal menu, si apre la finestra di
 Sono disponibili nella cartella esempi tre file per fare dei test:
 - **test_ch.csv** (file *.csv con header)
 - **test_ch.csv** (file *.csv senza header)
-- **123.dxf** (file *.dxf)
+- **123.dxf** (oggetto poligonale in *.dxf)
   
 # Architettura
 
