@@ -314,13 +314,14 @@ class CombinedCsvDialog(QDialog):
             logging.warning("Layer CSV vuoto.")
             return
 
-        # Barra di progresso
+        # Barra di progresso e controllo delle feature con coordinate non valide
         self.progress_import = QProgressDialog("Importazione delle feature...", "Annulla", 0, total_features, self)
         self.progress_import.setWindowModality(Qt.WindowModal)
         self.progress_import.setMinimumDuration(0)
         self.progress_import.show()
 
         processed_features = 0
+        invalid_features = 0  # Contatore per feature con coordinate non valide
         try:
             for feat in csv_layer.getFeatures():
                 if self.progress_import.wasCanceled():
@@ -328,6 +329,20 @@ class CombinedCsvDialog(QDialog):
                     logging.info("Importazione interrotta dall'utente.")
                     self.progress_import.close()
                     return
+                # Estrai e verifica i valori di latitudine e longitudine
+                lat_val = feat.attribute(self.y_field)
+                lon_val = feat.attribute(self.x_field)
+                try:
+                    lat = float(lat_val)
+                    lon = float(lon_val)
+                except Exception:
+                    invalid_features += 1
+                    continue  # Salta la feature se i valori non sono numerici
+
+                if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                    invalid_features += 1
+                    continue  # Salta la feature se le coordinate non sono nel range
+
                 new_feat = QgsFeature()
                 new_feat.setGeometry(feat.geometry())
                 attr_values = [feat.attribute(field_name) for field_name in selected_fields]
@@ -343,6 +358,12 @@ class CombinedCsvDialog(QDialog):
 
         self.progress_import.setValue(total_features)
         self.progress_import.close()
+
+        # Se sono state trovate feature con coordinate non valide, annulla l'importazione (il layer non viene creato)
+        if invalid_features > 0:
+            QMessageBox.warning(self, "Attenzione", f"Sono state trovate {invalid_features} feature con coordinate non valide. Importazione annullata.")
+            return
+
         mem_layer.updateExtents()
 
         # Imposta default value per X e Y se presenti
@@ -587,9 +608,11 @@ class CombinedCsvDialog(QDialog):
                 # Campo generico
                 return format_number(field_value, 3)
 
-        # Header
+        # Header: se esporta l'header e il CRS non è EPSG:4326, sostituisce i nomi dei campi x e y con "est" e "nord"
         if export_headers:
             header_fields = [f for f in selected_fields]
+            if not is_epsg_4326:
+                header_fields = [("est" if f == x_field else "nord" if f == y_field else f) for f in header_fields]
         else:
             header_fields = None
 
