@@ -39,15 +39,15 @@ class CombinedCsvDialog(QDialog):
         self.setWindowTitle("spotter")
         self.setFixedSize(600, 700)
         
-        # Configura le flag della finestra per una finestra normale
-        # Rimuovo WindowStaysOnTopHint per permettere ad altre finestre di sovrapporsi
+        # Configura le flag della finestra per rimanere sopra QGIS ma non sopra tutte le finestre
         self.setWindowFlags(
             Qt.Window |                 # Finestra normale
             Qt.WindowTitleHint |        # Mostra la barra del titolo
             Qt.WindowSystemMenuHint |   # Menu di sistema
             Qt.WindowMinimizeButtonHint | # Pulsante minimizza
             Qt.WindowCloseButtonHint |  # Pulsante chiudi
-            Qt.WindowMaximizeButtonHint # Pulsante massimizza
+            Qt.WindowMaximizeButtonHint | # Pulsante massimizza
+            Qt.WindowStaysOnTopHint     # Resta sopra la finestra principale
         )
         
         # Assicura che la finestra non sia modale (non blocca altre finestre)
@@ -882,6 +882,9 @@ class CombinedCsvDialog(QDialog):
             text_format = QgsTextFormat()
             text_format.setFont(QFont("Noto Sans", 12))
             text_format.setSize(12)
+            # Abilita HTML se stiamo mostrando nome+quota
+            if self.label_type == "both":
+                text_format.setAllowHtmlFormatting(True)
 
             buffer_settings = QgsTextBufferSettings()
             buffer_settings.setEnabled(True)
@@ -2439,10 +2442,10 @@ class CombinedCsvDialog(QDialog):
                     logging.info(f"Impostata etichetta quota: {self.selected_elevation_field}")
                     
                 elif self.label_type == "both" and self.selected_elevation_field and self.selected_elevation_field in field_names:
-                    # Mostra nome e quota su due righe
+                    # Mostra nome e quota su due righe con quota in grassetto
                     label_settings.isExpression = True
-                    # Replica esattamente quello che funziona manualmente
-                    label_settings.fieldName = 'concat("{}",\'\\n\',"{}}")'.format(name_field, self.selected_elevation_field)
+                    # Usa HTML per formattare la quota in grassetto
+                    label_settings.fieldName = 'concat("{}", \'<br>\', \'<b>\', "{}", \'</b>\')'.format(name_field, self.selected_elevation_field)
                     
                     QgsMessageLog.logMessage(f"Update labels - Layer: {layer.name()}", 'spotter', Qgis.Info)
                     QgsMessageLog.logMessage(f"Update labels - Campo nome: {name_field}", 'spotter', Qgis.Info)
@@ -2462,6 +2465,9 @@ class CombinedCsvDialog(QDialog):
                 text_format = QgsTextFormat()
                 text_format.setFont(QFont("Noto Sans", 12))
                 text_format.setSize(12)
+                # Abilita HTML se stiamo mostrando nome+quota
+                if self.label_type == "both":
+                    text_format.setAllowHtmlFormatting(True)
                 
                 # Buffer bianco per leggibilità
                 buffer_settings = QgsTextBufferSettings()
