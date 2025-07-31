@@ -30,12 +30,30 @@ class SpotterPlugin:
         """Rimuove l'azione quando il plugin viene disabilitato o chiuso."""
         self.iface.removePluginMenu(self.tr("&spotter"), self.action)
         self.iface.removeToolBarIcon(self.action)
+        
+        # Chiudi la finestra se è aperta
+        if self.dialog is not None:
+            self.dialog.close()
+            self.dialog = None
 
     def run(self):
         """Esegue il plugin, mostrando la finestra di dialogo."""
         try:
-            self.dialog = CombinedCsvDialog(self.iface)
-            self.dialog.show()
+            # Se la finestra esiste già, la porta in primo piano
+            if self.dialog is not None:
+                self.dialog.raise_()
+                self.dialog.activateWindow()
+                self.dialog.show()
+            else:
+                # Crea una nuova finestra solo se non esiste
+                self.dialog = CombinedCsvDialog(self.iface)
+                # Connetti il segnale di chiusura per resettare il riferimento
+                self.dialog.finished.connect(self.on_dialog_closed)
+                self.dialog.show()
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), self.tr("Errore"), str(e))
+    
+    def on_dialog_closed(self):
+        """Chiamato quando la finestra viene chiusa."""
+        self.dialog = None
 
