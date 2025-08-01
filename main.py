@@ -1909,6 +1909,7 @@ class CombinedCsvDialog(QDialog):
         name_field = target_layer.customProperty('import_name_field')
         x_field = target_layer.customProperty('import_x_field')
         y_field = target_layer.customProperty('import_y_field')
+        elevation_field = target_layer.customProperty('import_elevation_field')  # Campo quota
         original_crs = target_layer.customProperty('original_crs')  # CRS originale del CSV
         
         if not all([name_field, x_field, y_field]):
@@ -2078,9 +2079,26 @@ class CombinedCsvDialog(QDialog):
                     new_feat[x_field] = x_coord
                     new_feat[y_field] = y_coord
                     
+                    # Se c'è un campo elevation, prova a ottenere la quota dalla feature originale
+                    if elevation_field and elevation_field in target_layer.fields().names():
+                        # Per i vertici estratti, potremmo interpolare o usare una quota di riferimento
+                        # Per ora, usa la quota di riferimento se specificata
+                        if self.reference_elevation.text():
+                            try:
+                                elevation_value = float(self.reference_elevation.text())
+                                new_feat[elevation_field] = elevation_value
+                            except ValueError:
+                                new_feat[elevation_field] = 0.0
+                        else:
+                            # Se non c'è quota di riferimento, imposta a 0
+                            new_feat[elevation_field] = 0.0
+                    
                     # Copia altri attributi se esistono nel layer target
                     for field in target_layer.fields():
                         if field.name() not in [name_field, x_field, y_field]:
+                            # Skip elevation field as it's already handled
+                            if elevation_field and field.name() == elevation_field:
+                                continue
                             # Imposta valori di default per altri campi
                             if field.type() == QVariant.String:
                                 new_feat[field.name()] = ""
@@ -2095,6 +2113,11 @@ class CombinedCsvDialog(QDialog):
         # Salva le modifiche
         target_layer.commitChanges()
         target_layer.updateExtents()
+        
+        # Riapplica le etichette per assicurarsi che i nuovi punti le mostrino
+        if self.labels_enabled:
+            self.apply_labels_to_specific_layer(target_layer)
+        
         target_layer.triggerRepaint()
         
         # Non riavviare automaticamente la modalità di modifica
@@ -3259,11 +3282,8 @@ class CombinedCsvDialog(QDialog):
             self.import_dms_format_combo.setCurrentIndex(0)  # Formato standard
             
             # Ripristina tab Esporta CSV
-            self.export_file_path_line_edit.clear()
-            self.export_layer_combo.clear()
-            # Ripopola con i layer disponibili
-            self.populate_export_layer_combo()
-            self.export_field_list_widget.clear()
+            # Ripopola la lista dei layer disponibili
+            self.populate_export_layers()
             self.export_header_checkbox.setChecked(True)
             self.export_crs_combo.setCurrentIndex(0)  # Torna a WGS84
             self.export_dms_checkbox.setChecked(False)
