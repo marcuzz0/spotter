@@ -16,7 +16,7 @@ from qgis.core import (
     QgsWkbTypes, QgsGeometry, QgsPointXY, QgsMessageLog, Qgis,
     QgsSnappingConfig, QgsTolerance, QgsVectorLayerSimpleLabeling,
     QgsPalLayerSettings, QgsTextFormat, QgsTextBufferSettings, QgsMarkerSymbol,
-    QgsSingleSymbolRenderer, QgsRuleBasedLabeling
+    QgsSingleSymbolRenderer, QgsRuleBasedLabeling, QgsFeatureRequest
 )
 import csv
 import os
@@ -2081,17 +2081,23 @@ class CombinedCsvDialog(QDialog):
                     
                     # Se c'è un campo elevation, prova a ottenere la quota dalla feature originale
                     if elevation_field and elevation_field in target_layer.fields().names():
+                        logging.info(f"Campo elevation trovato: {elevation_field}")
                         # Per i vertici estratti, potremmo interpolare o usare una quota di riferimento
                         # Per ora, usa la quota di riferimento se specificata
                         if self.reference_elevation.text():
                             try:
                                 elevation_value = float(self.reference_elevation.text())
                                 new_feat[elevation_field] = elevation_value
+                                logging.info(f"Impostata quota di riferimento: {elevation_value} per punto {proposed_name}")
                             except ValueError:
                                 new_feat[elevation_field] = 0.0
+                                logging.warning(f"Valore quota non valido, impostato a 0.0")
                         else:
                             # Se non c'è quota di riferimento, imposta a 0
                             new_feat[elevation_field] = 0.0
+                            logging.info(f"Nessuna quota di riferimento, impostata a 0.0 per punto {proposed_name}")
+                    else:
+                        logging.warning(f"Campo elevation non trovato. elevation_field={elevation_field}, campi disponibili: {target_layer.fields().names()}")
                     
                     # Copia altri attributi se esistono nel layer target
                     for field in target_layer.fields():
@@ -2114,9 +2120,28 @@ class CombinedCsvDialog(QDialog):
         target_layer.commitChanges()
         target_layer.updateExtents()
         
+        # Debug: verifica i valori salvati
+        if features_added > 0:
+            logging.info(f"Verifica valori dopo commit per layer {target_layer.name()}:")
+            logging.info(f"Label type corrente: {self.label_type}")
+            logging.info(f"Labels enabled: {self.labels_enabled}")
+            logging.info(f"Elevation field: {elevation_field}")
+            
+            # Controlla alcuni punti appena aggiunti
+            expr = f'"{name_field}" >= {start_num} AND "{name_field}" <= {point_num - 1}'
+            request = QgsFeatureRequest().setFilterExpression(expr)
+            sample_count = 0
+            for feat in target_layer.getFeatures(request):
+                if sample_count < 3:  # Mostra solo i primi 3 per debug
+                    vals = {field.name(): feat[field.name()] for field in target_layer.fields()}
+                    logging.info(f"Punto {feat[name_field]}: {vals}")
+                    sample_count += 1
+        
         # Riapplica le etichette per assicurarsi che i nuovi punti le mostrino
         if self.labels_enabled:
-            self.apply_labels_to_specific_layer(target_layer)
+            logging.info(f"Riapplicazione etichette al layer {target_layer.name()}")
+            # Forza l'aggiornamento delle etichette sul layer specifico
+            self.update_labels_on_layers()
         
         target_layer.triggerRepaint()
         
@@ -2948,12 +2973,16 @@ class CombinedCsvDialog(QDialog):
             logging.info("Etichette disabilitate, skip update_labels_on_layers")
             return
         
+        logging.info(f"Inizio update_labels_on_layers, label_type={self.label_type}")
+        
         # Aggiorna tutti i layer CSV di punti per mantenere colori uniformi
         for layer_id, layer in QgsProject.instance().mapLayers().items():
             if (layer and 
                 layer.type() == QgsVectorLayer.VectorLayer and 
                 layer.geometryType() == QgsWkbTypes.PointGeometry and
                 layer.customProperty('import_source') == 'csv'):  # Solo layer CSV importati
+                
+                logging.info(f"Aggiornamento etichette per layer: {layer.name()}")
                 
                 # Prima prova a ottenere il campo nome dalle proprietà del layer (per layer CSV importati)
                 name_field = layer.customProperty('import_name_field')
