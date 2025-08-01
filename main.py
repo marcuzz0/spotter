@@ -98,6 +98,9 @@ class CombinedCsvDialog(QDialog):
         # Recupera il campo quota dai layer esistenti all'avvio
         self.initialize_elevation_field()
         
+        # Rileva colori e impostazioni dai layer esistenti
+        self.detect_existing_settings()
+        
         # Connetti al segnale di cambio layer attivo
         self.iface.layerTreeView().currentLayerChanged.connect(self.on_active_layer_changed)
         
@@ -146,7 +149,126 @@ class CombinedCsvDialog(QDialog):
         
         # Imposta la tab Importa CSV come attiva di default
         self.tabs.setCurrentIndex(0)  # Index 0 = Importa CSV
+        
+        # Inizializza i numeri progressivi al primo numero disponibile
+        self.initialize_progressive_numbers()
 
+    def initialize_progressive_numbers(self):
+        """Inizializza i campi numerici con il primo numero progressivo disponibile"""
+        max_num = self.find_max_point_number()
+        next_num = str(max_num + 1)
+        self.start_vertex_number.setText(next_num)
+        self.rename_start_number.setText(next_num)
+        logging.info(f"Numeri progressivi inizializzati a: {next_num}")
+    
+    def detect_existing_settings(self):
+        """Rileva colori e impostazioni dai layer esistenti nel progetto"""
+        logging.info("Rilevamento impostazioni esistenti nel progetto...")
+        
+        # Rileva colori dei simboli dai layer esistenti
+        for layer in QgsProject.instance().mapLayers().values():
+            if layer.type() == QgsVectorLayer.VectorLayer:
+                renderer = layer.renderer()
+                if renderer and hasattr(renderer, 'symbol') and renderer.symbol():
+                    symbol = renderer.symbol()
+                    geometry_type = layer.geometryType()
+                    
+                    # Rileva colori in base al tipo di geometria
+                    if geometry_type == QgsWkbTypes.PointGeometry and layer.customProperty('import_source') == 'csv':
+                        # Layer punti CSV
+                        self.point_color = symbol.color()
+                        logging.info(f"Colore punti rilevato da {layer.name()}: {self.point_color.name()}")
+                    elif geometry_type == QgsWkbTypes.LineGeometry and layer.customProperty('is_dxf_layer'):
+                        # Layer linee DXF
+                        self.line_color = symbol.color()
+                        logging.info(f"Colore linee rilevato da {layer.name()}: {self.line_color.name()}")
+                    elif geometry_type == QgsWkbTypes.PolygonGeometry and layer.customProperty('is_dxf_layer'):
+                        # Layer poligoni DXF
+                        if symbol.symbolLayer(0):
+                            self.polygon_color = symbol.symbolLayer(0).strokeColor()
+                            logging.info(f"Colore poligoni rilevato da {layer.name()}: {self.polygon_color.name()}")
+        
+        # Rileva colori e tipo etichette
+        self.detect_label_settings()
+        
+        # Aggiorna i pulsanti dei colori
+        self.update_color_button()
+        self.update_line_color_button()
+        self.update_polygon_color_button()
+        self.update_name_text_color_button()
+        self.update_elevation_text_color_button()
+    
+    def detect_label_settings(self):
+        """Rileva le impostazioni delle etichette dai layer esistenti"""
+        # Prima controlla il layer attivo
+        active_layer = self.iface.activeLayer()
+        if (active_layer and 
+            active_layer.type() == QgsVectorLayer.VectorLayer and 
+            active_layer.customProperty('import_source') == 'csv' and
+            active_layer.labelsEnabled() and active_layer.labeling()):
+            
+            self.process_layer_labels(active_layer)
+        
+        # Se non abbiamo trovato tutto dal layer attivo, cerca in tutti i layer
+        if (self.name_text_color == self.default_name_text_color or 
+            self.elevation_text_color == self.default_elevation_text_color):
+            for layer in QgsProject.instance().mapLayers().values():
+                if (layer.type() == QgsVectorLayer.VectorLayer and 
+                    layer.customProperty('import_source') == 'csv' and
+                    layer.labelsEnabled() and layer.labeling()):
+                    self.process_layer_labels(layer)
+                    # Se abbiamo trovato entrambi i colori, possiamo fermarci
+                    if (self.name_text_color != self.default_name_text_color and 
+                        self.elevation_text_color != self.default_elevation_text_color):
+                        break
+    
+    def process_layer_labels(self, layer):
+        """Processa le etichette di un singolo layer per estrarre colori e tipo"""
+        labeling = layer.labeling()
+        if hasattr(labeling, 'settings'):
+            settings = labeling.settings()
+            field_name = settings.fieldName
+            text_format = settings.format()
+            
+            # Rileva il tipo di etichetta
+            elevation_field = layer.customProperty('import_elevation_field')
+            name_field = layer.customProperty('import_name_field')
+            
+            if elevation_field and field_name == elevation_field:
+                self.label_type = "elevation"
+                self.elevation_text_color = text_format.color()
+                logging.info(f"Rilevato tipo etichetta: quota, colore: {self.elevation_text_color.name()}")
+            elif name_field and field_name == name_field:
+                self.label_type = "name"
+                self.name_text_color = text_format.color()
+                logging.info(f"Rilevato tipo etichetta: nome, colore: {self.name_text_color.name()}")
+            elif 'concat(' in field_name and '<span style' in field_name:
+                self.label_type = "both"
+                # Estrai i colori dall'HTML
+                import re
+                color_matches = re.findall(r'color:\s*([^;"}]+)', field_name)
+                if len(color_matches) >= 2:
+                    elevation_color = QColor(color_matches[0])
+                    name_color = QColor(color_matches[1])
+                    if elevation_color.isValid():
+                        self.elevation_text_color = elevation_color
+                    if name_color.isValid():
+                        self.name_text_color = name_color
+                logging.info(f"Rilevato tipo etichetta: both, colori: quota={self.elevation_text_color.name()}, nome={self.name_text_color.name()}")
+            
+            # Rileva se le etichette sono abilitate
+            self.labels_enabled = layer.labelsEnabled()
+            
+            # Aggiorna il combo box del tipo etichetta
+            if hasattr(self, 'label_type_combo'):
+                index = self.label_type_combo.findData(self.label_type)
+                if index >= 0:
+                    self.label_type_combo.setCurrentIndex(index)
+            
+            # Aggiorna il checkbox delle etichette
+            if hasattr(self, 'labels_checkbox'):
+                self.labels_checkbox.setChecked(self.labels_enabled)
+    
     def connect_tab_signal(self):
         """Collega eventuali segnali quando cambiamo tab."""
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -717,9 +839,15 @@ class CombinedCsvDialog(QDialog):
             logging.error("Layer CSV non valido.")
             return
 
-        # SEMPRE riproietta in Web Mercator (EPSG:3857) per uniformità
-        target_crs = "EPSG:3857"
-        logging.info(f"Riproiezione automatica da {selected_crs} a EPSG:3857 (Web Mercator)")
+        # Se il CRS è geografico (4326), riproietta in Web Mercator (3857)
+        # Altrimenti mantieni il CRS piano originale
+        source_crs_obj = QgsCoordinateReferenceSystem(selected_crs)
+        if source_crs_obj.isGeographic() or selected_crs == "EPSG:4326":
+            target_crs = "EPSG:3857"
+            logging.info(f"Riproiezione automatica da {selected_crs} a EPSG:3857 (Web Mercator)")
+        else:
+            target_crs = selected_crs
+            logging.info(f"Mantenimento del CRS piano originale: {selected_crs}")
         
         # Creazione layer in memoria
         mem_layer = QgsVectorLayer(f"Point?crs={target_crs}", layer_name, "memory")
@@ -831,10 +959,29 @@ class CombinedCsvDialog(QDialog):
         if self.x_field and self.y_field:
             x_idx = mem_layer.fields().indexFromName(self.x_field)
             y_idx = mem_layer.fields().indexFromName(self.y_field)
-            if x_idx != -1:
-                mem_layer.setDefaultValueDefinition(x_idx, QgsDefaultValue('round($x, 8)'))
-            if y_idx != -1:
-                mem_layer.setDefaultValueDefinition(y_idx, QgsDefaultValue('round($y, 8)'))
+            
+            # Se abbiamo riproiettato da geografico a Web Mercator, 
+            # dobbiamo trasformare le coordinate indietro al CRS originale per i campi
+            if (source_crs_obj.isGeographic() or selected_crs == "EPSG:4326") and target_crs == "EPSG:3857":
+                # Trasforma da 3857 back to original CRS (4326) per i campi
+                if x_idx != -1:
+                    mem_layer.setDefaultValueDefinition(x_idx, QgsDefaultValue(
+                        f"round(x(transform($geometry, 'EPSG:3857', '{selected_crs}')), 8)"
+                    ))
+                if y_idx != -1:
+                    mem_layer.setDefaultValueDefinition(y_idx, QgsDefaultValue(
+                        f"round(y(transform($geometry, 'EPSG:3857', '{selected_crs}')), 8)"
+                    ))
+            else:
+                # Per CRS piani, usa direttamente le coordinate
+                if x_idx != -1:
+                    mem_layer.setDefaultValueDefinition(x_idx, QgsDefaultValue(
+                        "round(x($geometry), 8)"
+                    ))
+                if y_idx != -1:
+                    mem_layer.setDefaultValueDefinition(y_idx, QgsDefaultValue(
+                        "round(y($geometry), 8)"
+                    ))
         
         # Imposta valore progressivo per il campo nome
         if self.name_field:
@@ -866,6 +1013,12 @@ class CombinedCsvDialog(QDialog):
                 # Usa aggregate per ottenere il massimo valore numerico esistente + 1
                 expression = f"coalesce(array_max(array_foreach(array_agg(regexp_substr(\"{self.name_field}\", '[0-9]+')), to_int(@element))), 0) + 1"
                 mem_layer.setDefaultValueDefinition(name_idx, QgsDefaultValue(expression))
+        
+        # Imposta valore di default 0 per il campo quota se presente
+        if self.selected_elevation_field:
+            elevation_idx = mem_layer.fields().indexFromName(self.selected_elevation_field)
+            if elevation_idx != -1:
+                mem_layer.setDefaultValueDefinition(elevation_idx, QgsDefaultValue('0'))
 
         QgsProject.instance().addMapLayer(mem_layer)
 
@@ -875,6 +1028,7 @@ class CombinedCsvDialog(QDialog):
         mem_layer.setCustomProperty('import_x_field', self.x_field)
         mem_layer.setCustomProperty('import_y_field', self.y_field)
         mem_layer.setCustomProperty('has_header', header)
+        mem_layer.setCustomProperty('original_crs', selected_crs)  # Memorizza il CRS originale
         if self.selected_elevation_field:
             mem_layer.setCustomProperty('import_elevation_field', self.selected_elevation_field)
 
@@ -985,10 +1139,11 @@ class CombinedCsvDialog(QDialog):
         self.tabs.setTabEnabled(self.dxf_tab_index, True)
 
         # Messaggio di successo con informazione sulla riproiezione
-        if selected_crs != "EPSG:3857":
+        source_crs_obj = QgsCoordinateReferenceSystem(selected_crs)
+        if source_crs_obj.isGeographic() or selected_crs == "EPSG:4326":
             success_msg = f"Layer temporaneo '{layer_name}' creato con successo!\n\nIl layer è stato riproiettato da {selected_crs} a Web Mercator (EPSG:3857)."
         else:
-            success_msg = f"Layer temporaneo '{layer_name}' creato con successo!"
+            success_msg = f"Layer temporaneo '{layer_name}' creato con successo!\n\nCRS: {selected_crs}"
         
         QMessageBox.information(self, "Successo", success_msg)
         logging.info(f"Layer temporaneo '{layer_name}' creato con successo. CRS: {target_crs}")
@@ -1550,7 +1705,7 @@ class CombinedCsvDialog(QDialog):
         self.rename_start_number = QLineEdit()
         self.rename_start_number.setFixedWidth(80)  # Larghezza fissa per il campo
         self.rename_start_number.setAlignment(Qt.AlignRight)  # Align text to the right
-        self.rename_start_number.setText("1")  # Default value
+        # Non impostare un valore di default, verrà calcolato quando si apre il tab
         rename_numero_layout.addWidget(self.rename_start_number)
         
         # Aggiungi il layout numero con stesso stretch factor
@@ -1577,7 +1732,7 @@ class CombinedCsvDialog(QDialog):
         self.start_vertex_number = QLineEdit()
         self.start_vertex_number.setFixedWidth(80)  # Larghezza fissa per il campo
         self.start_vertex_number.setAlignment(Qt.AlignRight)  # Align text to the right
-        self.start_vertex_number.setPlaceholderText("1")
+        # Non impostare un placeholder, verrà calcolato quando si apre il tab
         numero_layout.addWidget(self.start_vertex_number)
         
         # Aggiungi il layout numero con stesso stretch factor
@@ -1754,6 +1909,7 @@ class CombinedCsvDialog(QDialog):
         name_field = target_layer.customProperty('import_name_field')
         x_field = target_layer.customProperty('import_x_field')
         y_field = target_layer.customProperty('import_y_field')
+        original_crs = target_layer.customProperty('original_crs')  # CRS originale del CSV
         
         if not all([name_field, x_field, y_field]):
             QMessageBox.warning(self, "Errore", "Il layer CSV non ha le informazioni necessarie sui campi")
@@ -1767,8 +1923,9 @@ class CombinedCsvDialog(QDialog):
         try:
             start_num = int(self.start_vertex_number.text())
         except ValueError:
-            # Se il campo è vuoto o non valido, usa 1 come default
-            start_num = 1
+            # Se il campo è vuoto o non valido, calcola il prossimo numero disponibile
+            max_num = self.find_max_point_number()
+            start_num = max_num + 1
             self.start_vertex_number.setText(str(start_num))
         
         logging.info(f"Numero iniziale per estrazione vertici: {start_num}")
@@ -1793,6 +1950,9 @@ class CombinedCsvDialog(QDialog):
         point_num = start_num
         vertices_skipped = 0
         total_vertices_processed = 0
+        
+        # Variabile per memorizzare la scelta dell'utente sui duplicati
+        duplicate_choice = None  # None = chiedi ogni volta, 'yes_all' = sì a tutti, 'no_all' = no a tutti
         
         for source_layer, selected_features in selected_features_by_layer.items():
             # Prepara la trasformazione delle coordinate se necessario
@@ -1844,10 +2004,79 @@ class CombinedCsvDialog(QDialog):
                     new_feat = QgsFeature(target_layer.fields())
                     new_feat.setGeometry(QgsGeometry.fromPointXY(point))
                     
+                    # Le coordinate per i campi X e Y devono essere nel CRS originale
+                    if original_crs and original_crs != target_layer.crs().authid():
+                        # Trasforma dal CRS del layer al CRS originale per i campi
+                        transform_to_original = QgsCoordinateTransform(
+                            target_layer.crs(), 
+                            QgsCoordinateReferenceSystem(original_crs), 
+                            QgsProject.instance()
+                        )
+                        original_point = transform_to_original.transform(point)
+                        x_coord = original_point.x()
+                        y_coord = original_point.y()
+                    else:
+                        # Se non c'è riproiezione, usa le coordinate dirette
+                        x_coord = point.x()
+                        y_coord = point.y()
+                    
+                    # Controlla se il nome esiste già
+                    proposed_name = str(point_num)
+                    name_exists = False
+                    existing_names = []
+                    
+                    # Cerca nomi duplicati nel layer
+                    for existing_feat in target_layer.getFeatures():
+                        if existing_feat[name_field] == proposed_name:
+                            name_exists = True
+                            existing_names.append(proposed_name)
+                            break
+                    
+                    # Se il nome esiste, gestisci in base alla scelta precedente o chiedi
+                    if name_exists:
+                        if duplicate_choice == 'yes_all':
+                            # L'utente ha scelto di inserire tutti i duplicati
+                            pass
+                        elif duplicate_choice == 'no_all':
+                            # L'utente ha scelto di saltare tutti i duplicati
+                            point_num += 1
+                            continue
+                        else:
+                            # Chiedi all'utente con opzioni aggiuntive
+                            msg_box = QMessageBox(self)
+                            msg_box.setWindowTitle('Nome Duplicato')
+                            msg_box.setText(f'Il nome "{proposed_name}" esiste già nel layer.\n\nVuoi inserirlo ugualmente?')
+                            
+                            yes_button = msg_box.addButton('Sì', QMessageBox.YesRole)
+                            no_button = msg_box.addButton('No', QMessageBox.NoRole)
+                            yes_all_button = msg_box.addButton('Sì a tutti', QMessageBox.YesRole)
+                            no_all_button = msg_box.addButton('No a tutti', QMessageBox.NoRole)
+                            
+                            msg_box.setDefaultButton(no_button)
+                            msg_box.exec_()
+                            
+                            clicked_button = msg_box.clickedButton()
+                            
+                            if clicked_button == yes_button:
+                                # Inserisci solo questo duplicato
+                                pass
+                            elif clicked_button == no_button:
+                                # Salta solo questo duplicato
+                                point_num += 1
+                                continue
+                            elif clicked_button == yes_all_button:
+                                # Inserisci questo e tutti i futuri duplicati
+                                duplicate_choice = 'yes_all'
+                            elif clicked_button == no_all_button:
+                                # Salta questo e tutti i futuri duplicati
+                                duplicate_choice = 'no_all'
+                                point_num += 1
+                                continue
+                    
                     # Imposta gli attributi
-                    new_feat[name_field] = str(point_num)
-                    new_feat[x_field] = point.x()
-                    new_feat[y_field] = point.y()
+                    new_feat[name_field] = proposed_name
+                    new_feat[x_field] = x_coord
+                    new_feat[y_field] = y_coord
                     
                     # Copia altri attributi se esistono nel layer target
                     for field in target_layer.fields():
@@ -1881,14 +2110,19 @@ class CombinedCsvDialog(QDialog):
             message += f"\nVertici totali processati: {total_vertices_processed}\n"
             message += f"Vertici saltati (già presenti): {vertices_skipped}"
             
+        # Salva il prossimo numero prima di mostrare il messaggio
+        next_number = str(point_num) if features_added > 0 else self.start_vertex_number.text()
+        
         QMessageBox.information(self, "Completato", message)
         
-        # Aggiorna il contatore con l'ultimo numero utilizzato
+        # Aggiorna il contatore DOPO il messaggio per evitare reset
         if features_added > 0:
-            new_max = self.find_max_point_number()
-            self.start_vertex_number.setText(str(new_max + 1))
-            # Aggiorna anche il campo rinomina
-            self.rename_start_number.setText(str(new_max + 1))
+            # Usa un timer per assicurarsi che l'aggiornamento avvenga dopo tutti gli eventi
+            from PyQt5.QtCore import QTimer
+            def update_counters():
+                self.start_vertex_number.setText(next_number)
+                self.rename_start_number.setText(next_number)
+            QTimer.singleShot(100, update_counters)
         
         # Attiva automaticamente lo strumento di selezione
         self.iface.actionSelectRectangle().trigger()
@@ -2335,11 +2569,11 @@ class CombinedCsvDialog(QDialog):
             QMessageBox.critical(self, "Errore", "Tipo di geometria non supportato")
             return
 
-        # SEMPRE usa Web Mercator (EPSG:3857) per uniformità
-        target_crs = QgsCoordinateReferenceSystem("EPSG:3857")
+        # Usa il CRS del progetto per il layer DXF posizionato
+        target_crs = project_crs
         # Estrai il nome del file DXF senza percorso e estensione
         dxf_name = os.path.splitext(os.path.basename(self.dxf_path))[0] if self.dxf_path else "DXF_Posizionato"
-        memory_layer = QgsVectorLayer(f"{geometry_string}?crs=EPSG:3857", dxf_name, "memory")
+        memory_layer = QgsVectorLayer(f"{geometry_string}?crs={target_crs.authid()}", dxf_name, "memory")
         provider = memory_layer.dataProvider()
 
         # Copia campi
@@ -2347,7 +2581,7 @@ class CombinedCsvDialog(QDialog):
         provider.addAttributes(fields.toList())
         memory_layer.updateFields()
 
-        # Prepara trasformazione coordinate se necessario (sempre trasforma in EPSG:3857)
+        # Prepara trasformazione coordinate se necessario
         if dxf_crs != target_crs:
             transform = QgsCoordinateTransform(dxf_crs, target_crs, QgsProject.instance())
         else:
@@ -2913,9 +3147,11 @@ class CombinedCsvDialog(QDialog):
             if index >= 0:
                 self.label_type_combo.setCurrentIndex(index)
             
-            # Ripristina campi numerici
-            self.rename_start_number.setText("1")
-            self.start_vertex_number.setText("")
+            # Ripristina campi numerici al prossimo numero disponibile
+            max_num = self.find_max_point_number()
+            next_num = str(max_num + 1)
+            self.rename_start_number.setText(next_num)
+            self.start_vertex_number.setText(next_num)
             self.reference_elevation.setText("")
             
             # Ripristina campo quota
@@ -2935,23 +3171,33 @@ class CombinedCsvDialog(QDialog):
                     geometry_type = layer.geometryType()
                     renderer = layer.renderer()
                     if renderer and hasattr(renderer, 'symbol') and renderer.symbol():
-                        symbol = renderer.symbol()
                         if geometry_type == QgsWkbTypes.PointGeometry:
-                            symbol.setColor(self.point_color)
-                            # Per i punti, imposta dimensione standard
-                            if symbol.symbolLayer(0):
-                                symbol.symbolLayer(0).setSize(2.5)
+                            # Per i punti, crea un nuovo simbolo per forzare l'aggiornamento della legenda
+                            symbol = QgsMarkerSymbol.createSimple({
+                                'name': 'circle', 
+                                'color': f'{self.point_color.red()},{self.point_color.green()},{self.point_color.blue()}',
+                                'size': '2.5'
+                            })
+                            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
                         elif geometry_type == QgsWkbTypes.LineGeometry:
-                            symbol.setColor(self.line_color)
-                            # Per le linee, imposta larghezza standard
-                            if symbol.symbolLayer(0):
-                                symbol.symbolLayer(0).setWidth(0.5)
+                            # Per le linee, crea un nuovo simbolo
+                            from qgis.core import QgsLineSymbol
+                            symbol = QgsLineSymbol.createSimple({
+                                'color': f'{self.line_color.red()},{self.line_color.green()},{self.line_color.blue()}',
+                                'width': '0.5',
+                                'line_style': 'solid'
+                            })
+                            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
                         elif geometry_type == QgsWkbTypes.PolygonGeometry:
-                            # Per i poligoni, imposta solo il bordo con colore
-                            symbol.setColor(QColor(0, 0, 0, 0))  # Riempimento trasparente
-                            if symbol.symbolLayer(0):
-                                symbol.symbolLayer(0).setStrokeColor(self.polygon_color)
-                                symbol.symbolLayer(0).setStrokeWidth(0.5)
+                            # Per i poligoni, crea un nuovo simbolo
+                            from qgis.core import QgsFillSymbol
+                            symbol = QgsFillSymbol.createSimple({
+                                'color': '0,0,0,0',  # Riempimento trasparente
+                                'outline_color': f'{self.polygon_color.red()},{self.polygon_color.green()},{self.polygon_color.blue()}',
+                                'outline_width': '0.5',
+                                'outline_style': 'solid'
+                            })
+                            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
                         layer.triggerRepaint()
                     
                     # Ripristina etichette se il layer ha un campo nome personalizzato
@@ -3096,9 +3342,8 @@ class CombinedCsvDialog(QDialog):
                         except:
                             continue
                 
-                # Aggiorna i campi numerici solo se sono vuoti
-                if not self.start_vertex_number.text():
-                    self.start_vertex_number.setText(str(max_num + 1))
+                # Aggiorna sempre i campi numerici con il prossimo numero disponibile
+                self.start_vertex_number.setText(str(max_num + 1))
                 self.rename_start_number.setText(str(max_num + 1))
                 logging.info(f"Layer attivo cambiato a {layer.name()}, prossimo numero: {max_num + 1}")
     
@@ -3116,8 +3361,7 @@ class CombinedCsvDialog(QDialog):
             else:
                 # Se non c'è un layer attivo, usa il metodo esistente
                 max_num = self.find_max_point_number()
-                if not self.start_vertex_number.text():
-                    self.start_vertex_number.setText(str(max_num + 1))
+                self.start_vertex_number.setText(str(max_num + 1))
                 self.rename_start_number.setText(str(max_num + 1))
             # Connetti ai layer di punti per aggiornamenti automatici
             self.connect_to_point_layers()
@@ -3451,9 +3695,8 @@ class CombinedCsvDialog(QDialog):
         # Aggiorna il contatore solo se siamo nel tab DXF
         if self.tabs.currentWidget() == self.dxf_tab:
             max_num = self.find_max_point_number()
-            if not self.start_vertex_number.text():
-                self.start_vertex_number.setText(str(max_num + 1))
-            # Aggiorna anche il campo rinomina
+            # Aggiorna sempre i campi con il prossimo numero disponibile
+            self.start_vertex_number.setText(str(max_num + 1))
             self.rename_start_number.setText(str(max_num + 1))
             logging.info(f"Contatore aggiornato dopo aggiunta punti: {max_num + 1}")
     
