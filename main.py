@@ -3117,7 +3117,8 @@ class CombinedCsvDialog(QDialog):
             '- Stato etichette e tipo\n'
             '- Checkbox snap e finestra in primo piano\n'
             '- Campi numerici\n'
-            '- Stili e colori dei layer attivi\n\n'
+            '- Stili e colori dei layer attivi\n'
+            '- Campi dei tab Importa CSV ed Esporta CSV\n\n'
             'Questa azione non può essere annullata.',
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
@@ -3241,6 +3242,32 @@ class CombinedCsvDialog(QDialog):
                                 labeling = QgsVectorLayerSimpleLabeling(settings)
                                 layer.setLabeling(labeling)
                                 layer.triggerRepaint()
+            
+            # Ripristina tab Importa CSV
+            self.import_file_line_edit.clear()
+            self.layer_name_line_edit.clear()
+            self.import_header_checkbox.setChecked(True)
+            self.import_dms_checkbox.setChecked(False)
+            self.import_fields_list_widget.clear()
+            self.import_name_field_combo.clear()
+            self.import_name_field_combo.addItem("-- Campo Nome (opzionale) --", None)
+            self.import_x_field_combo.clear()
+            self.import_y_field_combo.clear()
+            self.import_elevation_field_combo.clear()
+            self.import_elevation_field_combo.addItem("-- Campo Quota (opzionale) --", None)
+            self.import_crs_combo.setCurrentIndex(0)  # Torna a WGS84
+            self.import_dms_format_combo.setCurrentIndex(0)  # Formato standard
+            
+            # Ripristina tab Esporta CSV
+            self.export_file_path_line_edit.clear()
+            self.export_layer_combo.clear()
+            # Ripopola con i layer disponibili
+            self.populate_export_layer_combo()
+            self.export_field_list_widget.clear()
+            self.export_header_checkbox.setChecked(True)
+            self.export_crs_combo.setCurrentIndex(0)  # Torna a WGS84
+            self.export_dms_checkbox.setChecked(False)
+            self.export_dms_format_combo.setCurrentIndex(0)  # Formato standard
             
             # Aggiorna etichette su tutti i layer
             self.update_labels_on_layers()
