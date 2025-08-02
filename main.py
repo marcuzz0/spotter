@@ -139,7 +139,12 @@ class CombinedCsvDialog(QDialog):
         self.dxf_tab_index = self.tabs.addTab(self.dxf_tab, "Gestione")
         self.tabs.setTabEnabled(self.dxf_tab_index, True)  # Abilitato di default
         
-        # 4) TAB About
+        # 4) TAB Impostazioni
+        self.settings_tab = QWidget()
+        self.init_settings_tab()
+        self.tabs.addTab(self.settings_tab, "Impostazioni")
+        
+        # 5) TAB About
         self.info_tab = QWidget()
         self.init_info_tab()
         self.tabs.addTab(self.info_tab, "About")
@@ -1527,136 +1532,11 @@ class CombinedCsvDialog(QDialog):
         # Aggiungi spazio iniziale come in Import CSV
         layout.addSpacing(10)
         
-        # SEZIONE IMPOSTAZIONI (spostata da Settings)
-        # Layout orizzontale per checkbox finestra in primo piano e pulsante default
-        top_layout = QHBoxLayout()
-        
-        # Checkbox per finestra sempre in primo piano
-        self.stay_on_top_checkbox = QCheckBox("Finestra sempre in primo piano")
-        self.stay_on_top_checkbox.setChecked(False)  # Disabilitato di default
-        self.stay_on_top_checkbox.stateChanged.connect(self.on_stay_on_top_changed)
-        top_layout.addWidget(self.stay_on_top_checkbox)
-        
-        # Spazio elastico per separare
-        top_layout.addStretch()
-        
-        # Pulsante per ripristinare i default
-        self.reset_defaults_button = QPushButton("Ripristina Default")
-        self.reset_defaults_button.setToolTip("Ripristina tutte le impostazioni ai valori di fabbrica")
-        self.reset_defaults_button.clicked.connect(self.reset_to_defaults)
-        top_layout.addWidget(self.reset_defaults_button)
-        
-        layout.addLayout(top_layout)
+        # SEZIONE DXF
+        dxf_title = QLabel("<b>Importa DXF</b>")
+        layout.addWidget(dxf_title)
         layout.addSpacing(10)
         
-        # Checkbox per lo snap
-        self.snap_checkbox = QCheckBox("Abilita snap")
-        self.snap_checkbox.setChecked(True)  # Abilitato di default
-        self.snap_checkbox.stateChanged.connect(self.on_snap_checkbox_changed)
-        layout.addWidget(self.snap_checkbox)
-        layout.addSpacing(15)
-        
-        # Layout per etichette con checkbox e combo
-        labels_layout = QHBoxLayout()
-        labels_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Checkbox per le etichette
-        self.labels_checkbox = QCheckBox("Mostra etichette")
-        self.labels_checkbox.setChecked(True)  # Abilitato di default
-        self.labels_checkbox.stateChanged.connect(self.on_labels_checkbox_changed)
-        labels_layout.addWidget(self.labels_checkbox)
-        
-        # ComboBox per tipo di etichetta
-        self.label_type_combo = QComboBox()
-        self.label_type_combo.addItem("Nome", "name")
-        self.label_type_combo.addItem("Quota", "elevation")
-        self.label_type_combo.addItem("Nome + Quota", "both")
-        self.label_type_combo.setCurrentIndex(0)  # Nome di default
-        self.label_type_combo.currentIndexChanged.connect(self.on_label_type_changed)
-        self.label_type_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        labels_layout.addWidget(self.label_type_combo)
-        
-        layout.addLayout(labels_layout)
-        layout.addSpacing(15)
-        
-        # Layout per tutti i colori in una riga
-        colors_layout = QHBoxLayout()
-        colors_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Label principale
-        colors_label = QLabel("Vettori:")
-        colors_label.setFixedWidth(50)
-        colors_layout.addWidget(colors_label)
-        
-        # Punti
-        colors_layout.addWidget(QLabel("Punti"))
-        self.color_button = QPushButton()
-        self.color_button.setMinimumWidth(60)
-        self.color_button.setFixedHeight(25)
-        self.update_color_button()
-        self.color_button.clicked.connect(self.choose_point_color)
-        colors_layout.addWidget(self.color_button, 1)  # stretch factor 1
-        
-        colors_layout.addSpacing(10)
-        
-        # Linee
-        colors_layout.addWidget(QLabel("Linee"))
-        self.line_color_button = QPushButton()
-        self.line_color_button.setMinimumWidth(60)
-        self.line_color_button.setFixedHeight(25)
-        self.update_line_color_button()
-        self.line_color_button.clicked.connect(self.choose_line_color)
-        colors_layout.addWidget(self.line_color_button, 1)  # stretch factor 1
-        
-        colors_layout.addSpacing(10)
-        
-        # Poligoni
-        colors_layout.addWidget(QLabel("Poligoni"))
-        self.polygon_color_button = QPushButton()
-        self.polygon_color_button.setMinimumWidth(60)
-        self.polygon_color_button.setFixedHeight(25)
-        self.update_polygon_color_button()
-        self.polygon_color_button.clicked.connect(self.choose_polygon_color)
-        colors_layout.addWidget(self.polygon_color_button, 1)  # stretch factor 1
-        
-        layout.addLayout(colors_layout)
-        layout.addSpacing(15)
-        
-        # Layout per i colori dei testi
-        text_colors_layout = QHBoxLayout()
-        text_colors_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Label principale
-        text_colors_label = QLabel("Testi:")
-        text_colors_label.setFixedWidth(50)
-        text_colors_layout.addWidget(text_colors_label)
-        
-        # Testo Nome
-        text_colors_layout.addWidget(QLabel("Nome"))
-        self.name_text_color_button = QPushButton()
-        self.name_text_color_button.setMinimumWidth(60)
-        self.name_text_color_button.setFixedHeight(25)
-        self.update_name_text_color_button()
-        self.name_text_color_button.clicked.connect(self.choose_name_text_color)
-        text_colors_layout.addWidget(self.name_text_color_button, 1)
-        
-        text_colors_layout.addSpacing(10)
-        
-        # Testo Quota
-        text_colors_layout.addWidget(QLabel("Quota"))
-        self.elevation_text_color_button = QPushButton()
-        self.elevation_text_color_button.setMinimumWidth(60)
-        self.elevation_text_color_button.setFixedHeight(25)
-        self.update_elevation_text_color_button()
-        self.elevation_text_color_button.clicked.connect(self.choose_elevation_text_color)
-        text_colors_layout.addWidget(self.elevation_text_color_button, 1)
-        
-        # Aggiungi spazio vuoto per allineamento
-        text_colors_layout.addStretch()
-        
-        layout.addLayout(text_colors_layout)
-        layout.addSpacing(15)
-
         # Selezione file DXF
         file_layout = QHBoxLayout()
         self.dxf_file_line_edit = QLineEdit()
@@ -1686,7 +1566,19 @@ class CombinedCsvDialog(QDialog):
         position_layout.addLayout(empty_layout, 1)  # stretch factor 1
         
         layout.addLayout(position_layout)
-        layout.addSpacing(15)
+        layout.addSpacing(20)
+        
+        # Separatore
+        separator1 = QLabel("─" * 50)
+        separator1.setStyleSheet("color: #cccccc;")
+        layout.addWidget(separator1)
+        layout.addSpacing(10)
+        
+        # SEZIONE GESTIONE PUNTI
+        points_title = QLabel("<b>Gestione punti</b>")
+        layout.addWidget(points_title)
+        layout.addSpacing(10)
+        
         rename_layout = QHBoxLayout()
         rename_layout.setSpacing(10)
         
@@ -3271,6 +3163,164 @@ class CombinedCsvDialog(QDialog):
                     logging.info(f"Etichette disabilitate per layer: {layer.name()}")
 
     ############################################################################
+    #                               TAB 4: IMPOSTAZIONI
+    ############################################################################
+    def init_settings_tab(self):
+        layout = QVBoxLayout()
+        
+        # Aggiungi spazio iniziale
+        layout.addSpacing(10)
+        
+        # SEZIONE COMPORTAMENTO
+        settings_title = QLabel("<b>Comportamento</b>")
+        layout.addWidget(settings_title)
+        layout.addSpacing(10)
+        
+        # Layout orizzontale per checkbox finestra in primo piano e pulsante default
+        top_layout = QHBoxLayout()
+        
+        # Checkbox per finestra sempre in primo piano
+        self.stay_on_top_checkbox = QCheckBox("Finestra sempre in primo piano")
+        self.stay_on_top_checkbox.setChecked(False)  # Disabilitato di default
+        self.stay_on_top_checkbox.stateChanged.connect(self.on_stay_on_top_changed)
+        top_layout.addWidget(self.stay_on_top_checkbox)
+        
+        # Spazio elastico per separare
+        top_layout.addStretch()
+        
+        # Pulsante per ripristinare i default
+        self.reset_defaults_button = QPushButton("Ripristina Default")
+        self.reset_defaults_button.setToolTip("Ripristina tutte le impostazioni ai valori di fabbrica")
+        self.reset_defaults_button.clicked.connect(self.reset_to_defaults)
+        top_layout.addWidget(self.reset_defaults_button)
+        
+        layout.addLayout(top_layout)
+        layout.addSpacing(10)
+        
+        # Checkbox per lo snap
+        self.snap_checkbox = QCheckBox("Abilita snap")
+        self.snap_checkbox.setChecked(True)  # Abilitato di default
+        self.snap_checkbox.stateChanged.connect(self.on_snap_checkbox_changed)
+        layout.addWidget(self.snap_checkbox)
+        layout.addSpacing(15)
+        
+        # Layout per etichette con checkbox e combo
+        labels_layout = QHBoxLayout()
+        labels_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Checkbox per le etichette
+        self.labels_checkbox = QCheckBox("Mostra etichette")
+        self.labels_checkbox.setChecked(True)  # Abilitato di default
+        self.labels_checkbox.stateChanged.connect(self.on_labels_checkbox_changed)
+        labels_layout.addWidget(self.labels_checkbox)
+        
+        # ComboBox per tipo di etichetta
+        self.label_type_combo = QComboBox()
+        self.label_type_combo.addItem("Nome", "name")
+        self.label_type_combo.addItem("Quota", "elevation")
+        self.label_type_combo.addItem("Nome + Quota", "both")
+        self.label_type_combo.setCurrentIndex(0)  # Nome di default
+        self.label_type_combo.currentIndexChanged.connect(self.on_label_type_changed)
+        self.label_type_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        labels_layout.addWidget(self.label_type_combo)
+        
+        layout.addLayout(labels_layout)
+        layout.addSpacing(20)
+        
+        # Separatore
+        separator = QLabel("─" * 50)
+        separator.setStyleSheet("color: #cccccc;")
+        layout.addWidget(separator)
+        layout.addSpacing(10)
+        
+        # SEZIONE COLORI
+        colors_title = QLabel("<b>Colori</b>")
+        layout.addWidget(colors_title)
+        layout.addSpacing(10)
+        
+        # Layout per tutti i colori vettori in una riga
+        colors_layout = QHBoxLayout()
+        colors_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Label principale
+        colors_label = QLabel("Vettori:")
+        colors_label.setFixedWidth(50)
+        colors_layout.addWidget(colors_label)
+        
+        # Punti
+        colors_layout.addWidget(QLabel("Punti"))
+        self.color_button = QPushButton()
+        self.color_button.setMinimumWidth(60)
+        self.color_button.setFixedHeight(25)
+        self.update_color_button()
+        self.color_button.clicked.connect(self.choose_point_color)
+        colors_layout.addWidget(self.color_button, 1)  # stretch factor 1
+        
+        colors_layout.addSpacing(10)
+        
+        # Linee
+        colors_layout.addWidget(QLabel("Linee"))
+        self.line_color_button = QPushButton()
+        self.line_color_button.setMinimumWidth(60)
+        self.line_color_button.setFixedHeight(25)
+        self.update_line_color_button()
+        self.line_color_button.clicked.connect(self.choose_line_color)
+        colors_layout.addWidget(self.line_color_button, 1)  # stretch factor 1
+        
+        colors_layout.addSpacing(10)
+        
+        # Poligoni
+        colors_layout.addWidget(QLabel("Poligoni"))
+        self.polygon_color_button = QPushButton()
+        self.polygon_color_button.setMinimumWidth(60)
+        self.polygon_color_button.setFixedHeight(25)
+        self.update_polygon_color_button()
+        self.polygon_color_button.clicked.connect(self.choose_polygon_color)
+        colors_layout.addWidget(self.polygon_color_button, 1)  # stretch factor 1
+        
+        layout.addLayout(colors_layout)
+        layout.addSpacing(15)
+        
+        # Layout per i colori dei testi
+        text_colors_layout = QHBoxLayout()
+        text_colors_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Label principale
+        text_colors_label = QLabel("Testi:")
+        text_colors_label.setFixedWidth(50)
+        text_colors_layout.addWidget(text_colors_label)
+        
+        # Testo Nome
+        text_colors_layout.addWidget(QLabel("Nome"))
+        self.name_text_color_button = QPushButton()
+        self.name_text_color_button.setMinimumWidth(60)
+        self.name_text_color_button.setFixedHeight(25)
+        self.update_name_text_color_button()
+        self.name_text_color_button.clicked.connect(self.choose_name_text_color)
+        text_colors_layout.addWidget(self.name_text_color_button, 1)
+        
+        text_colors_layout.addSpacing(10)
+        
+        # Testo Quota
+        text_colors_layout.addWidget(QLabel("Quota"))
+        self.elevation_text_color_button = QPushButton()
+        self.elevation_text_color_button.setMinimumWidth(60)
+        self.elevation_text_color_button.setFixedHeight(25)
+        self.update_elevation_text_color_button()
+        self.elevation_text_color_button.clicked.connect(self.choose_elevation_text_color)
+        text_colors_layout.addWidget(self.elevation_text_color_button, 1)
+        
+        # Aggiungi spazio vuoto per allineamento
+        text_colors_layout.addStretch()
+        
+        layout.addLayout(text_colors_layout)
+        
+        # Aggiungi stretch per spingere tutto in alto
+        layout.addStretch()
+        
+        self.settings_tab.setLayout(layout)
+    
+    ############################################################################
     #                               TAB 5: INFO
     ############################################################################
     def init_info_tab(self):
@@ -3282,7 +3332,7 @@ class CombinedCsvDialog(QDialog):
         
         # Informazioni sul plugin (senza Contatto)
         info_label = QLabel(
-            "<p><b>Versione:</b> 1.1 del 22 luglio 2025</p>"
+            "<p><b>Versione:</b> 1.2 del 2 agosto 2025</p>"
             "<p><b>Autore:</b> <a href='mailto:solutop@gmail.com'>marcuzz0</a></p>"
             "<p><b>Codice:</b> <a href='https://github.com/marcuzz0/spotter'>Github repository</a></p>"
             "<p><b>Supporta:</b> puoi fare una donazione per supportare il progetto da  <a href='https://ko-fi.com/marcuzz0'>qui</a></p>"
