@@ -1884,17 +1884,119 @@ class CombinedCsvDialog(QDialog):
             self.dxf_layer = temp_dxf_layer
             self.place_dxf_button.setEnabled(True)
             
-            # Chiedi se vuole posizionare il DXF sulla mappa
-            reply = QMessageBox.question(
-                self,
-                "DXF Caricato",
-                "Il file DXF è stato caricato correttamente.\n\nVuoi posizionarlo sulla mappa?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
+            # Chiedi se vuole importare con coordinate originali o posizionare manualmente
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Modalità importazione DXF")
+            msg.setText("Come vuoi importare il file DXF?")
+            msg.setInformativeText(
+                "Coordinate originali: il DXF verrà importato con le sue coordinate native.\n\n"
+                "Posiziona manualmente: clicca sulla mappa per scegliere dove posizionare il centroide del DXF."
             )
             
-            if reply == QMessageBox.Yes:
+            original_btn = msg.addButton("Usa coordinate originali", QMessageBox.ActionRole)
+            manual_btn = msg.addButton("Posiziona manualmente", QMessageBox.ActionRole)
+            cancel_btn = msg.addButton("Annulla", QMessageBox.RejectRole)
+            
+            msg.setDefaultButton(original_btn)
+            msg.exec_()
+            
+            clicked_button = msg.clickedButton()
+            
+            if clicked_button == original_btn:
+                # Importa direttamente con coordinate originali
+                self.import_dxf_original_coords()
+            elif clicked_button == manual_btn:
+                # Procedi con il posizionamento manuale esistente
                 self.start_placing_dxf()
+    
+    def import_dxf_original_coords(self):
+        """Importa il DXF mantenendo le coordinate originali"""
+        if not self.dxf_layer:
+            return
+        
+        # Ottieni il nome del file senza percorso e estensione
+        file_name = os.path.splitext(os.path.basename(self.dxf_path))[0]
+        
+        # Determina il tipo di geometria per il layer in memoria
+        geom_type = self.dxf_layer.geometryType()
+        if geom_type == QgsWkbTypes.LineGeometry:
+            geom_string = "LineString"
+        elif geom_type == QgsWkbTypes.PolygonGeometry:
+            geom_string = "Polygon"
+        else:
+            geom_string = "Point"  # Fallback
+        
+        # Crea layer in memoria con lo stesso CRS del DXF
+        memory_layer = QgsVectorLayer(
+            f"{geom_string}?crs={self.dxf_layer.crs().authid()}",
+            file_name,
+            "memory"
+        )
+        
+        # Copia la struttura dei campi
+        memory_layer.startEditing()
+        for field in self.dxf_layer.fields():
+            memory_layer.addAttribute(field)
+        
+        # Copia tutte le feature mantenendo le coordinate originali
+        features_to_add = []
+        for feat in self.dxf_layer.getFeatures():
+            new_feat = QgsFeature(memory_layer.fields())
+            new_feat.setGeometry(feat.geometry())  # Geometria originale
+            new_feat.setAttributes(feat.attributes())
+            features_to_add.append(new_feat)
+        
+        memory_layer.addFeatures(features_to_add)
+        memory_layer.commitChanges()
+        
+        # Imposta proprietà personalizzate per identificare il layer come DXF
+        memory_layer.setCustomProperty('is_dxf_layer', True)
+        memory_layer.setCustomProperty('dxf_source', self.dxf_path)
+        
+        # Applica stili in base al tipo di geometria
+        self.apply_dxf_style(memory_layer)
+        
+        # Aggiungi al progetto
+        QgsProject.instance().addMapLayer(memory_layer)
+        
+        # Riordina i layer
+        self.reorder_layers()
+        
+        # Zoom all'estensione del layer
+        self.iface.mapCanvas().setExtent(memory_layer.extent())
+        self.iface.mapCanvas().refresh()
+        
+        QMessageBox.information(
+            self, 
+            "Completato", 
+            f"DXF '{file_name}' importato con coordinate originali"
+        )
+    
+    def apply_dxf_style(self, layer):
+        """Applica lo stile appropriato al layer DXF in base al tipo di geometria"""
+        geometry_type = layer.geometryType()
+        
+        if geometry_type == QgsWkbTypes.LineGeometry:
+            # Stile per linee
+            from qgis.core import QgsLineSymbol
+            symbol = QgsLineSymbol.createSimple({
+                'color': f'{self.line_color.red()},{self.line_color.green()},{self.line_color.blue()}',
+                'width': '0.5',
+                'line_style': 'solid'
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        elif geometry_type == QgsWkbTypes.PolygonGeometry:
+            # Stile per poligoni
+            from qgis.core import QgsFillSymbol
+            symbol = QgsFillSymbol.createSimple({
+                'color': '0,0,0,0',  # Riempimento trasparente
+                'outline_color': f'{self.polygon_color.red()},{self.polygon_color.green()},{self.polygon_color.blue()}',
+                'outline_width': '0.5',
+                'outline_style': 'solid'
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        
+        layer.triggerRepaint()
 
     def extract_vertices_from_geometry(self):
         """Estrae i vertici da geometrie selezionate in qualsiasi layer e li aggiunge al layer CSV"""
