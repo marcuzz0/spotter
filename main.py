@@ -139,12 +139,18 @@ class CombinedCsvDialog(QDialog):
         self.dxf_tab_index = self.tabs.addTab(self.dxf_tab, "Gestione")
         self.tabs.setTabEnabled(self.dxf_tab_index, True)  # Abilitato di default
         
-        # 4) TAB Impostazioni
+        # 4) TAB Unisci punti
+        self.merge_tab = QWidget()
+        self.init_merge_tab()
+        self.merge_tab_index = self.tabs.addTab(self.merge_tab, "Unisci punti")
+        self.tabs.setTabEnabled(self.merge_tab_index, True)
+        
+        # 5) TAB Impostazioni
         self.settings_tab = QWidget()
         self.init_settings_tab()
         self.tabs.addTab(self.settings_tab, "Impostazioni")
         
-        # 5) TAB About
+        # 6) TAB About
         self.info_tab = QWidget()
         self.init_info_tab()
         self.tabs.addTab(self.info_tab, "About")
@@ -1659,59 +1665,6 @@ class CombinedCsvDialog(QDialog):
         
         layout.addLayout(elevation_layout)
         
-        # SEZIONE UNISCI PUNTI PER CODICE
-        layout.addSpacing(20)
-        
-        # Separatore
-        separator3 = QLabel("─" * 50)
-        separator3.setStyleSheet("color: #cccccc;")
-        layout.addWidget(separator3)
-        layout.addSpacing(10)
-        
-        # Titolo sezione
-        unisci_title = QLabel("<b>Unisci punti per codice</b>")
-        layout.addWidget(unisci_title)
-        layout.addSpacing(10)
-        
-        # ComboBox per selezione campo codice
-        code_field_layout = QHBoxLayout()
-        code_field_layout.addWidget(QLabel("Campo codice:"))
-        self.code_field_combo = QComboBox()
-        self.code_field_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        code_field_layout.addWidget(self.code_field_combo)
-        layout.addLayout(code_field_layout)
-        layout.addSpacing(10)
-        
-        # Radio buttons per tipo geometria
-        self.line_radio = QRadioButton("Linee (min. 2 punti)")
-        self.polygon_radio = QRadioButton("Poligoni chiusi (min. 3 punti)")
-        self.polygon_radio.setChecked(True)  # Default poligoni
-        
-        geometry_group_layout = QVBoxLayout()
-        geometry_group_layout.addWidget(QLabel("Tipo geometria:"))
-        geometry_group_layout.addWidget(self.line_radio)
-        geometry_group_layout.addWidget(self.polygon_radio)
-        layout.addLayout(geometry_group_layout)
-        layout.addSpacing(10)
-        
-        # ComboBox per ordinamento punti
-        order_layout = QHBoxLayout()
-        order_layout.addWidget(QLabel("Ordinamento punti:"))
-        self.point_order_combo = QComboBox()
-        self.point_order_combo.addItem("Per nome/numero progressivo", "name")
-        self.point_order_combo.addItem("Per distanza minima", "distance")
-        self.point_order_combo.addItem("Ordine di selezione", "selection")
-        self.point_order_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        order_layout.addWidget(self.point_order_combo)
-        layout.addLayout(order_layout)
-        layout.addSpacing(15)
-        
-        # Pulsante per unire i punti
-        self.merge_points_button = QPushButton("Unisci punti selezionati")
-        self.merge_points_button.clicked.connect(self.merge_points_by_code)
-        self.merge_points_button.setEnabled(False)  # Disabilitato di default
-        layout.addWidget(self.merge_points_button)
-        
         # Aggiungi spazio elastico
         layout.addStretch()
         
@@ -3163,7 +3116,86 @@ class CombinedCsvDialog(QDialog):
                     logging.info(f"Etichette disabilitate per layer: {layer.name()}")
 
     ############################################################################
-    #                               TAB 4: IMPOSTAZIONI
+    #                               TAB 4: UNISCI PUNTI
+    ############################################################################
+    def init_merge_tab(self):
+        layout = QVBoxLayout()
+        
+        # Aggiungi spazio iniziale
+        layout.addSpacing(10)
+        
+        # Istruzioni
+        instructions = QLabel(
+            "<b>Unisci punti per codice</b><br><br>"
+            "Questa funzione permette di creare linee o poligoni unendo punti che hanno lo stesso valore nel campo codice.<br><br>"
+            "<b>Come funziona:</b><br>"
+            "1. Seleziona i punti da unire sulla mappa<br>"
+            "2. Scegli il campo che contiene il codice<br>"
+            "3. Seleziona se creare linee o poligoni<br>"
+            "4. Scegli il metodo di ordinamento dei punti<br>"
+            "5. Clicca su 'Unisci punti selezionati'"
+        )
+        instructions.setWordWrap(True)
+        layout.addWidget(instructions)
+        layout.addSpacing(20)
+        
+        # ComboBox per selezione campo codice
+        code_field_layout = QHBoxLayout()
+        code_field_layout.addWidget(QLabel("Campo codice:"))
+        self.code_field_combo = QComboBox()
+        self.code_field_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        code_field_layout.addWidget(self.code_field_combo)
+        layout.addLayout(code_field_layout)
+        layout.addSpacing(15)
+        
+        # Radio buttons per tipo geometria
+        self.line_radio = QRadioButton("Linee (min. 2 punti)")
+        self.polygon_radio = QRadioButton("Poligoni chiusi (min. 3 punti)")
+        self.polygon_radio.setChecked(True)  # Default poligoni
+        
+        geometry_group_layout = QVBoxLayout()
+        geometry_group_layout.addWidget(QLabel("Tipo geometria:"))
+        geometry_group_layout.addWidget(self.line_radio)
+        geometry_group_layout.addWidget(self.polygon_radio)
+        layout.addLayout(geometry_group_layout)
+        layout.addSpacing(15)
+        
+        # ComboBox per ordinamento punti
+        order_layout = QHBoxLayout()
+        order_layout.addWidget(QLabel("Ordinamento punti:"))
+        self.point_order_combo = QComboBox()
+        self.point_order_combo.addItem("Per nome/numero progressivo", "name")
+        self.point_order_combo.addItem("Per distanza minima", "distance")
+        self.point_order_combo.addItem("Ordine di selezione", "selection")
+        self.point_order_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        order_layout.addWidget(self.point_order_combo)
+        layout.addLayout(order_layout)
+        layout.addSpacing(20)
+        
+        # Pulsante per unire i punti
+        self.merge_points_button = QPushButton("Unisci punti selezionati")
+        self.merge_points_button.clicked.connect(self.merge_points_by_code)
+        self.merge_points_button.setEnabled(False)  # Disabilitato di default
+        layout.addWidget(self.merge_points_button)
+        
+        # Note aggiuntive
+        layout.addSpacing(20)
+        notes = QLabel(
+            "<b>Note:</b><br>"
+            "• I punti senza codice verranno ignorati<br>"
+            "• Ogni gruppo di punti con lo stesso codice creerà una geometria separata<br>"
+            "• Tutti gli attributi del primo punto di ogni gruppo verranno copiati nella nuova geometria"
+        )
+        notes.setWordWrap(True)
+        layout.addWidget(notes)
+        
+        # Aggiungi stretch per spingere tutto in alto
+        layout.addStretch()
+        
+        self.merge_tab.setLayout(layout)
+    
+    ############################################################################
+    #                               TAB 5: IMPOSTAZIONI
     ############################################################################
     def init_settings_tab(self):
         layout = QVBoxLayout()
