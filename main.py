@@ -5,7 +5,7 @@ from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QLineEdit, QFileDialog, QCheckBox, QListWidget, QListWidgetItem,
     QComboBox, QMessageBox, QTabWidget, QWidget, QProgressDialog, QSizePolicy,
-    QColorDialog, QInputDialog
+    QColorDialog, QInputDialog, QRadioButton
 )
 from qgis.PyQt.QtGui import QColor, QFont, QPixmap
 from qgis.PyQt.QtCore import QVariant, Qt, pyqtSignal
@@ -1767,6 +1767,59 @@ class CombinedCsvDialog(QDialog):
         
         layout.addLayout(elevation_layout)
         
+        # SEZIONE UNISCI PUNTI PER CODICE
+        layout.addSpacing(20)
+        
+        # Separatore
+        separator3 = QLabel("─" * 50)
+        separator3.setStyleSheet("color: #cccccc;")
+        layout.addWidget(separator3)
+        layout.addSpacing(10)
+        
+        # Titolo sezione
+        unisci_title = QLabel("<b>Unisci punti per codice</b>")
+        layout.addWidget(unisci_title)
+        layout.addSpacing(10)
+        
+        # ComboBox per selezione campo codice
+        code_field_layout = QHBoxLayout()
+        code_field_layout.addWidget(QLabel("Campo codice:"))
+        self.code_field_combo = QComboBox()
+        self.code_field_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        code_field_layout.addWidget(self.code_field_combo)
+        layout.addLayout(code_field_layout)
+        layout.addSpacing(10)
+        
+        # Radio buttons per tipo geometria
+        self.line_radio = QRadioButton("Linee (min. 2 punti)")
+        self.polygon_radio = QRadioButton("Poligoni chiusi (min. 3 punti)")
+        self.polygon_radio.setChecked(True)  # Default poligoni
+        
+        geometry_group_layout = QVBoxLayout()
+        geometry_group_layout.addWidget(QLabel("Tipo geometria:"))
+        geometry_group_layout.addWidget(self.line_radio)
+        geometry_group_layout.addWidget(self.polygon_radio)
+        layout.addLayout(geometry_group_layout)
+        layout.addSpacing(10)
+        
+        # ComboBox per ordinamento punti
+        order_layout = QHBoxLayout()
+        order_layout.addWidget(QLabel("Ordinamento punti:"))
+        self.point_order_combo = QComboBox()
+        self.point_order_combo.addItem("Per nome/numero progressivo", "name")
+        self.point_order_combo.addItem("Per distanza minima", "distance")
+        self.point_order_combo.addItem("Ordine di selezione", "selection")
+        self.point_order_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        order_layout.addWidget(self.point_order_combo)
+        layout.addLayout(order_layout)
+        layout.addSpacing(15)
+        
+        # Pulsante per unire i punti
+        self.merge_points_button = QPushButton("Unisci punti selezionati")
+        self.merge_points_button.clicked.connect(self.merge_points_by_code)
+        self.merge_points_button.setEnabled(False)  # Disabilitato di default
+        layout.addWidget(self.merge_points_button)
+        
         # Aggiungi spazio elastico
         layout.addStretch()
         
@@ -3341,6 +3394,26 @@ class CombinedCsvDialog(QDialog):
         # Chiama il metodo della classe padre
         super().closeEvent(event)
     
+    def update_code_field_combo(self):
+        """Aggiorna il combo box dei campi codice in base al layer attivo"""
+        self.code_field_combo.clear()
+        
+        active_layer = self.iface.activeLayer()
+        if active_layer and active_layer.type() == QgsVectorLayer.VectorLayer and active_layer.geometryType() == QgsWkbTypes.PointGeometry:
+            # Aggiungi prima un elemento vuoto
+            self.code_field_combo.addItem("-- Seleziona campo codice --", None)
+            
+            # Aggiungi tutti i campi del layer
+            for field in active_layer.fields():
+                self.code_field_combo.addItem(field.name(), field.name())
+            
+            # Se esiste un campo che contiene "cod" nel nome, selezionalo
+            for i in range(self.code_field_combo.count()):
+                field_name = self.code_field_combo.itemData(i)
+                if field_name and "cod" in field_name.lower():
+                    self.code_field_combo.setCurrentIndex(i)
+                    break
+    
     def update_buttons_state(self):
         """Aggiorna lo stato dei pulsanti in base ai layer attivi"""
         # OTTIMIZZAZIONE: Controlla solo il layer attivo invece di tutti i layer
@@ -3362,6 +3435,15 @@ class CombinedCsvDialog(QDialog):
         self.rename_start_number.setEnabled(has_vector_layers)
         if not has_vector_layers:
             self.rename_start_number.clear()
+        
+        # Aggiorna combo campo codice per unione punti
+        self.update_code_field_combo()
+        
+        # Abilita pulsante unisci punti solo se c'è un layer di punti attivo
+        if active_layer and active_layer.type() == QgsVectorLayer.VectorLayer and active_layer.geometryType() == QgsWkbTypes.PointGeometry:
+            self.merge_points_button.setEnabled(True)
+        else:
+            self.merge_points_button.setEnabled(False)
             
         self.start_vertex_number.setEnabled(has_geometry_layers)
         if not has_geometry_layers:
@@ -4147,6 +4229,220 @@ class CombinedCsvDialog(QDialog):
         # Disabilita il map tool
         self.iface.mapCanvas().unsetMapTool(self.elevation_map_tool)
         self.elevation_map_tool = None
+    
+    def merge_points_by_code(self):
+        """Unisce i punti selezionati in base al campo codice per creare linee o poligoni"""
+        active_layer = self.iface.activeLayer()
+        
+        # Verifica layer valido
+        if not active_layer or active_layer.type() != QgsVectorLayer.VectorLayer or active_layer.geometryType() != QgsWkbTypes.PointGeometry:
+            QMessageBox.warning(self, "Avviso", "Seleziona un layer di punti")
+            return
+        
+        # Verifica campo codice selezionato
+        code_field = self.code_field_combo.currentData()
+        if not code_field:
+            QMessageBox.warning(self, "Avviso", "Seleziona un campo codice")
+            return
+        
+        # Ottieni punti selezionati
+        selected_features = active_layer.selectedFeatures()
+        if not selected_features:
+            QMessageBox.warning(self, "Avviso", "Seleziona almeno alcuni punti da unire")
+            return
+        
+        # Determina tipo geometria
+        create_polygons = self.polygon_radio.isChecked()
+        min_points = 3 if create_polygons else 2
+        geometry_type = "Polygon" if create_polygons else "LineString"
+        
+        # Ottieni metodo ordinamento
+        order_method = self.point_order_combo.currentData()
+        
+        # Raggruppa punti per codice
+        points_by_code = {}
+        for feature in selected_features:
+            code_value = feature[code_field]
+            
+            # Ignora punti senza codice
+            if code_value is None or str(code_value).strip() == "":
+                continue
+            
+            if code_value not in points_by_code:
+                points_by_code[code_value] = []
+            
+            points_by_code[code_value].append(feature)
+        
+        if not points_by_code:
+            QMessageBox.warning(self, "Avviso", "Nessun punto con codice valido trovato")
+            return
+        
+        # Conta gruppi validi e scartati
+        valid_groups = 0
+        discarded_groups = []
+        
+        for code, features in points_by_code.items():
+            if len(features) >= min_points:
+                valid_groups += 1
+            else:
+                discarded_groups.append(f"{code} ({len(features)} punti)")
+        
+        if valid_groups == 0:
+            QMessageBox.warning(
+                self, 
+                "Avviso", 
+                f"Nessun gruppo ha il minimo di {min_points} punti richiesti per creare {geometry_type.lower()}"
+            )
+            return
+        
+        # Mostra riepilogo e chiedi conferma
+        message = f"Trovati {len(points_by_code)} gruppi di codici:\n"
+        message += f"- {valid_groups} gruppi validi (>= {min_points} punti)\n"
+        if discarded_groups:
+            message += f"- {len(discarded_groups)} gruppi scartati:\n"
+            for disc in discarded_groups[:5]:  # Mostra max 5
+                message += f"  • {disc}\n"
+            if len(discarded_groups) > 5:
+                message += f"  • ... e altri {len(discarded_groups) - 5}\n"
+        
+        message += f"\nCreare {valid_groups} {geometry_type.lower()}?"
+        
+        reply = QMessageBox.question(self, "Conferma", message, QMessageBox.Yes | QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        
+        # Chiedi nome layer output
+        default_name = f"{'Poligoni' if create_polygons else 'Linee'}_da_codici"
+        layer_name, ok = QInputDialog.getText(
+            self, 
+            "Nome layer", 
+            "Nome del layer di output:", 
+            text=default_name
+        )
+        
+        if not ok or not layer_name:
+            return
+        
+        # Crea nuovo layer
+        crs = active_layer.crs().authid()
+        new_layer = QgsVectorLayer(
+            f"{geometry_type}?crs={crs}",
+            layer_name,
+            "memory"
+        )
+        
+        # Copia struttura campi dal layer originale
+        new_layer.startEditing()
+        for field in active_layer.fields():
+            new_layer.addAttribute(field)
+        
+        # Crea geometrie
+        features_created = 0
+        
+        for code, features in points_by_code.items():
+            if len(features) < min_points:
+                continue
+            
+            # Ordina i punti secondo il metodo scelto
+            # Per l'ordinamento per nome, usa il campo nome del layer se disponibile
+            name_field = active_layer.customProperty('import_name_field')
+            if not name_field:
+                # Fallback: cerca campo comune
+                for field in active_layer.fields():
+                    if field.name().lower() in ['nome', 'name', 'id', 'punto', 'point']:
+                        name_field = field.name()
+                        break
+            ordered_features = self.order_features(features, order_method, name_field or code_field)
+            
+            # Estrai i punti
+            points = []
+            for feat in ordered_features:
+                geom = feat.geometry()
+                if geom:
+                    point = geom.asPoint()
+                    points.append(QgsPointXY(point))
+            
+            # Crea geometria
+            if create_polygons:
+                # Per i poligoni, assicurati che sia chiuso
+                if points[0] != points[-1]:
+                    points.append(points[0])
+                geometry = QgsGeometry.fromPolygonXY([points])
+            else:
+                # Per le linee
+                geometry = QgsGeometry.fromPolylineXY(points)
+            
+            # Crea nuova feature con tutti gli attributi del primo punto
+            new_feature = QgsFeature(new_layer.fields())
+            new_feature.setGeometry(geometry)
+            
+            # Copia tutti gli attributi dal primo punto del gruppo
+            first_feature = ordered_features[0]
+            for field in active_layer.fields():
+                new_feature[field.name()] = first_feature[field.name()]
+            
+            new_layer.addFeature(new_feature)
+            features_created += 1
+        
+        # Salva modifiche
+        new_layer.commitChanges()
+        
+        # Aggiungi al progetto
+        QgsProject.instance().addMapLayer(new_layer)
+        
+        # Messaggio di successo
+        QMessageBox.information(
+            self, 
+            "Completato", 
+            f"Create {features_created} {'poligoni' if create_polygons else 'linee'} nel layer '{layer_name}'"
+        )
+        
+        # Riordina layer
+        self.reorder_layers()
+    
+    def order_features(self, features, method, name_field):
+        """Ordina le feature secondo il metodo specificato"""
+        if method == "name":
+            # Ordina per nome/numero progressivo
+            try:
+                # Prova a ordinare numericamente se possibile
+                return sorted(features, key=lambda f: int(str(f[name_field])) if str(f[name_field]).isdigit() else str(f[name_field]))
+            except:
+                # Fallback a ordinamento stringa
+                return sorted(features, key=lambda f: str(f[name_field]))
+                
+        elif method == "distance":
+            # Ordina per distanza minima (nearest neighbor)
+            if not features:
+                return []
+            
+            ordered = [features[0]]
+            remaining = features[1:]
+            
+            while remaining:
+                last_point = ordered[-1].geometry().asPoint()
+                
+                # Trova il punto più vicino
+                nearest = None
+                min_distance = float('inf')
+                
+                for feat in remaining:
+                    point = feat.geometry().asPoint()
+                    distance = last_point.distance(point)
+                    
+                    if distance < min_distance:
+                        min_distance = distance
+                        nearest = feat
+                
+                if nearest:
+                    ordered.append(nearest)
+                    remaining.remove(nearest)
+            
+            return ordered
+            
+        else:  # selection
+            # Mantieni ordine di selezione originale
+            return features
     
     def reorder_layers(self):
         """Riordina i layer: mappe in fondo, poi poligoni, poi linee, poi punti in cima"""
