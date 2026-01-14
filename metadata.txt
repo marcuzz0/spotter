@@ -1,7 +1,7 @@
 [general]
 name=spotter
 description=Plugin per import/export CSV e import DXF
-version=1.0
+version=1.1
 icon=icon.png
 qgisMinimumVersion=3.0
 author=Marco Severin

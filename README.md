@@ -26,6 +26,8 @@ Cliccando sull’icona o selezionando il plugin dal menu, si apre la finestra di
 - Per importare DXF: Seleziona il file DXF, verifica le geometrie e posiziona il contenuto sulla mappa cliccando nel punto desiderato.
 - Informazioni e Supporto: Nel tab Info trovi tutte le informazioni sul plugin, inclusi link per donazioni o per contattare l’autore.
 
+Maggiori informazioni e videotutorial a questo link: https://ms2.solutop.eu/spotter.html
+
 ## Test:
 
 Sono disponibili nella cartella esempi tre file per fare dei test:
